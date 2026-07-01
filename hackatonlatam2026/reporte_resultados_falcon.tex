@@ -1,0 +1,505 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{float}
+\usepackage{longtable}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue,
+  hypertexnames=false
+}
+
+\newcommand{\resultfigure}[4]{
+  \begin{figure}[H]
+  \centering
+  \IfFileExists{#1}{
+    \includegraphics[width=#2\textwidth]{#1}
+  }{
+    \fbox{\parbox{0.86\textwidth}{\centering
+    Figura no encontrada: \texttt{\detokenize{#1}}.}}
+  }
+  \caption{#3}
+  \label{#4}
+  \end{figure}
+}
+
+\title{\textbf{Resilient Release Scheduling for the International Falcon Reservoir}\\
+\large Challenge A -- Hackathon Latinoamerica 2026}
+\author{Equipo de trabajo -- Falcon Reservoir}
+\date{1 de julio de 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Este reporte presenta una solucion reproducible para el Challenge A:
+\textit{Resilient Release Scheduling for the International Falcon Reservoir}.
+El objetivo es mejorar la resiliencia del almacenamiento del embalse durante
+periodos de bajo volumen mediante una politica semanal de ajustes de liberacion.
+La instancia oficial evaluada usa un horizonte de $T=26$ semanas y $L=5$
+niveles discretos por semana, lo que produce una codificacion QUBO de 130
+variables binarias y un espacio de busqueda de $5^{26}\approx 1.49\times10^{18}$
+politicas posibles. La mejor politica nominal obtuvo
+$\mathrm{SRS}=-0.145371$, con una mejora de
+$\Delta\mathrm{SRS}=+0.010941$ respecto a la operacion historica. Ademas,
+se realizo un analisis de robustez bajo siete escenarios hidrologicos; el
+metodo QUBO+SA reoptimizado fue el mejor en el ranking agregado, con
+\textit{robustez score} de $-0.456030$ y sin violaciones de factibilidad.
+\end{abstract}
+
+\section{Contexto del reto}
+
+El International Falcon Reservoir forma parte del sistema binacional de la
+cuenca del Rio Bravo / Rio Grande. El reto pregunta si una formulacion de
+optimizacion basada en datos puede proponer calendarios de liberacion que
+mejoren la resiliencia del almacenamiento durante periodos de escasez.
+
+La variable de decision es el ajuste semanal de liberacion $u(t)$ aplicado
+sobre la liberacion historica observada $R_{\mathrm{obs}}(t)$:
+
+\begin{equation}
+R_{\mathrm{opt}}(t) = R_{\mathrm{obs}}(t) + u(t).
+\end{equation}
+
+La dinamica simplificada del embalse queda:
+
+\begin{equation}
+S_{\mathrm{opt}}(t+1) =
+S_{\mathrm{opt}}(t) + \Delta S_{\mathrm{obs}}(t) - u(t),
+\end{equation}
+
+donde $\Delta S_{\mathrm{obs}}(t)$ resume el cambio natural observado de
+almacenamiento. Si $u(t)<0$, se libera menos agua que en la historia y se
+conserva almacenamiento; si $u(t)>0$, se libera mas.
+
+\section{Datos e instancia benchmark}
+
+Los datos provienen del portal IBWC Water Data para las estaciones:
+
+\begin{itemize}
+  \item \textbf{08461200 -- International Falcon Reservoir}: almacenamiento,
+  elevacion y cambio de almacenamiento.
+  \item \textbf{08461300 -- Rio Grande Below Falcon Dam}: liberacion historica.
+\end{itemize}
+
+La instancia oficial media se configuro como:
+
+\begin{table}[H]
+\centering
+\caption{Instancia oficial evaluada.}
+\begin{tabular}{ll}
+\toprule
+Parametro & Valor \\
+\midrule
+Horizonte & $T=26$ semanas \\
+Niveles discretos & $L=5$ \\
+Variables binarias & $T\times L=130$ \\
+Codificacion & One-hot por semana \\
+Espacio de busqueda & $5^{26}\approx 1.49\times10^{18}$ politicas \\
+Ventana de trabajo & 2024-01-01, 26 semanas \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Los niveles discretos de ajuste son:
+
+\begin{equation}
+u(t) \in \{-2\Delta u,\,-\Delta u,\,0,\,\Delta u,\,2\Delta u\},
+\qquad
+\Delta u=0.25\,\mathrm{median}(R_{\mathrm{obs}}).
+\end{equation}
+
+En la corrida registrada, $\Delta u=3617.7255$ y el limite semanal es
+$u_{\max}=2\Delta u$.
+
+\section{Metrica oficial: Storage Resilience Score}
+
+El Storage Resilience Score (SRS) se define como:
+
+\begin{equation}
+\mathrm{SRS} =
+-\left(w_1 C_{\mathrm{crit}} + w_2 C_{\mathrm{dev}} +
+w_3 C_{\mathrm{smooth}}\right).
+\end{equation}
+
+Por construccion, valores menos negativos son mejores. Los tres componentes
+penalizan: almacenamiento bajo el umbral critico, desviaciones excesivas
+respecto a la operacion historica y cambios bruscos entre semanas.
+
+\begin{align}
+C_{\mathrm{crit}} &=
+\sum_{t=0}^{T}
+\max(0, S_{\min} - S_{\mathrm{opt}}(t))^2, \\
+C_{\mathrm{dev}} &=
+\sum_{t=0}^{T-1} u(t)^2, \\
+C_{\mathrm{smooth}} &=
+\sum_{t=1}^{T-1} (u(t)-u(t-1))^2.
+\end{align}
+
+El umbral critico se calcula como:
+
+\begin{equation}
+S_{\min}=0.25S_{\max}.
+\end{equation}
+
+\section{Restricciones de factibilidad}
+
+Todas las politicas reportadas se auditan contra las restricciones duras del
+reto:
+
+\begin{align}
+R_{\mathrm{obs}}(t) + u(t) &\geq 0, \\
+|u(t)| &\leq u_{\max}, \\
+0 \leq S_{\mathrm{opt}}(t) &\leq S_{\max}, \\
+\left|\sum_{t=0}^{T-1} u(t)\right| &\leq
+0.10\sum_{t=0}^{T-1} R_{\mathrm{obs}}(t).
+\end{align}
+
+La cuarta restriccion evita que el modelo gane simplemente reteniendo agua en
+todas las semanas; obliga a que la politica redistribuya temporalmente las
+liberaciones dentro de un balance acumulado permitido.
+
+\section{Metodos comparados}
+
+Se compararon cinco rutas principales:
+
+\begin{itemize}
+  \item \textbf{Historico}: replay de la operacion observada, con $u(t)=0$.
+  \item \textbf{Regla umbral}: reduce liberaciones cuando el almacenamiento cae
+  por debajo de $S_{\min}$.
+  \item \textbf{Genetico DEAP}: baseline clasico evolutivo sobre la politica
+  discreta semanal.
+  \item \textbf{QUBO + simulated annealing}: formulacion binaria one-hot con
+  evaluacion final exacta de SRS y restricciones.
+  \item \textbf{QCentroid}: ejecuciones separadas en modos \texttt{sa\_cpu},
+  \texttt{sa\_gpu} y \texttt{qaoa} protegido.
+\end{itemize}
+
+La politica RNA se conserva como exploracion secundaria; no se reporta como
+solucion final porque no mejora el baseline historico en esta corrida.
+
+\section{Formulacion QUBO}
+
+El ajuste semanal se codifica con variables binarias one-hot $x_{t,k}$:
+
+\begin{equation}
+u(t) = \Delta u \sum_k a_k x_{t,k},
+\qquad
+a=[-2,-1,0,1,2].
+\end{equation}
+
+El problema se lleva a una forma cuadratica:
+
+\begin{equation}
+\min_x x^\top Qx.
+\end{equation}
+
+La matriz $Q$ integra penalizaciones por desviacion, suavidad, almacenamiento
+critico aproximado, one-hot, flujo no negativo y balance acumulado:
+
+\begin{equation}
+Q =
+Q_{\mathrm{dev}}+
+Q_{\mathrm{smooth}}+
+Q_{\mathrm{crit}}+
+Q_{\mathrm{onehot}}+
+Q_{\mathrm{flow}}+
+Q_{\mathrm{balance}}.
+\end{equation}
+
+El termino $Q_{\mathrm{crit}}$ usa una aproximacion cuadratica para permitir
+una forma QUBO. Por eso, la seleccion final no se toma solo por energia QUBO:
+cada candidato se decodifica y se reevalua con el SRS oficial y la auditoria
+de factibilidad.
+
+\section{Resultados nominales}
+
+La Tabla \ref{tab:nominal} resume la corrida principal. El mejor SRS nominal
+lo alcanzan tanto el genetico DEAP como QUBO+SA. La mejora respecto al replay
+historico es de $+0.010941$.
+
+\begin{table}[H]
+\centering
+\caption{Resultados nominales para $T=26$, $L=5$.}
+\label{tab:nominal}
+\begin{tabular}{lrrr}
+\toprule
+Metodo & SRS & $\Delta$SRS vs historico & Tiempo (s) \\
+\midrule
+Historico ($u=0$) & -0.156312 & 0.000000 & -- \\
+Regla umbral & -0.149991 & +0.006321 & -- \\
+Genetico DEAP & -0.145371 & +0.010941 & 7.89 \\
+QUBO + SA & -0.145371 & +0.010941 & 68.60 \\
+RNA exploratoria & -0.156776 & -0.000465 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La politica QUBO+SA seleccionada reduce la liberacion durante las primeras
+11 semanas con $u(t)=-\Delta u$ y mantiene $u(t)=0$ en las 15 semanas
+restantes. Sus indicadores principales son:
+
+\begin{table}[H]
+\centering
+\caption{Resumen de la politica QUBO+SA seleccionada.}
+\begin{tabular}{lr}
+\toprule
+Indicador & Valor \\
+\midrule
+SRS & -0.145371 \\
+$\Delta$SRS vs historico & +0.010941 \\
+Semanas con reduccion de liberacion & 11 \\
+Semanas sin ajuste & 15 \\
+$\sum_t u(t)$ & -39794.9805 \\
+Almacenamiento minimo simulado & 348251.0805 \\
+Almacenamiento final simulado & 807176.0805 \\
+Violaciones de restricciones & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Resultados QCentroid}
+
+La Tabla \ref{tab:qcentroid} compara las corridas exportadas desde los
+notebooks de QCentroid. Los tres modos produjeron la misma politica final y
+el mismo SRS. El modo \texttt{qaoa} debe interpretarse con cuidado: para la
+instancia de 130 qubits, la ejecucion protegida registro \texttt{fallback}
+desde QAOA hacia \texttt{sa\_gpu}; por lo tanto, se reporta como ruta
+QAOA disponible, no como demostracion de ventaja cuantica pura.
+
+\begin{table}[H]
+\centering
+\caption{Corridas QCentroid exportadas.}
+\label{tab:qcentroid}
+\begin{tabular}{lrrl}
+\toprule
+Modo & SRS & Tiempo (s) & Observacion \\
+\midrule
+\texttt{sa\_cpu} & -0.145371 & 97.46 & CPU reproducible \\
+\texttt{sa\_gpu} & -0.145371 & 4350.77 & $128$ restarts, $500000$ iteraciones \\
+\texttt{qaoa} protegido & -0.145371 & 4370.69 & fallback desde QAOA; 130 qubits solicitados \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Esta lectura es importante para la defensa tecnica: la contribucion cuantica
+esta en la formulacion QUBO/Ising y en la compatibilidad con una ruta QAOA,
+pero el resultado oficial estable para la instancia media se obtiene con
+annealing hibrido/clasico sobre la formulacion binaria.
+
+\section{Validacion QAOA reducida y benchmark de escalabilidad}
+
+Adicionalmente se reviso el notebook
+\texttt{Versiones/reservoir\_falcon\_benchmark.ipynb}. Su principal aporte es
+separar dos preguntas que conviene no mezclar durante la presentacion:
+
+\begin{itemize}
+  \item \textbf{Correctitud de la ruta QAOA}: se valido una ventana real reducida
+  de $T=6$, $L=3$, equivalente a 18 qubits. En ese caso, QAOA statevector alcanzo
+  el mismo minimo QUBO que una busqueda exhaustiva.
+  \item \textbf{Escalabilidad del caso oficial}: la instancia oficial
+  $T=26$, $L=5$ requiere 130 qubits y representa
+  $1.49\times10^{18}$ politicas posibles. Esto justifica reportar el caso
+  oficial con QUBO+SA y dejar QAOA completo como ruta experimental.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Aportes del benchmark QAOA/escalabilidad agregado.}
+\begin{tabular}{lrrrl}
+\toprule
+Instancia & $T$ & $L$ & Qubits & Resultado \\
+\midrule
+Validacion QAOA & 6 & 3 & 18 & QAOA alcanzo el minimo QUBO exacto \\
+Small & 12 & 3 & 36 & SA validado contra brute force \\
+Medium oficial & 26 & 5 & 130 & QUBO+SA estable para entrega \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Analisis de robustez}
+
+Para evaluar si la politica solo funciona en el caso nominal o conserva valor
+bajo incertidumbre, se construyeron siete escenarios:
+
+\begin{itemize}
+  \item nominal;
+  \item sequia 10\%;
+  \item sequia 20\%;
+  \item ruido semanal suave;
+  \item ruido semanal fuerte;
+  \item bloque critico de cinco semanas;
+  \item desfase temporal del cambio de almacenamiento.
+\end{itemize}
+
+Se compararon cuatro politicas: historico, regla umbral, QUBO+SA nominal y
+QUBO+SA reoptimizado por escenario. El ranking agregado se muestra en la
+Tabla \ref{tab:robustez}.
+
+\begin{table}[H]
+\centering
+\caption{Ranking de robustez bajo escenarios perturbados.}
+\label{tab:robustez}
+\begin{tabular}{lrrrr}
+\toprule
+Metodo & SRS prom. & SRS peor & Factibilidad & Score robustez \\
+\midrule
+QUBO+SA reoptimizado & -0.162869 & -0.217459 & 1.000 & -0.456030 \\
+QUBO+SA nominal & -0.163411 & -0.219375 & 1.000 & -0.457947 \\
+Regla umbral & -0.167510 & -0.219708 & 0.857 & -0.468279 \\
+Historico & -0.176004 & -0.239564 & 1.000 & -0.488136 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+El resultado refuerza dos puntos. Primero, QUBO+SA no solo mejora el caso
+nominal: tambien domina el promedio y el peor caso entre las politicas
+evaluadas. Segundo, reoptimizar ante cada escenario produce una mejora
+pequena pero consistente sobre usar la politica nominal sin ajuste.
+
+\section{Figuras generadas}
+
+\resultfigure{resultados/simulacion_hibrida.png}{0.96}
+{Trayectorias de almacenamiento y ajustes semanales para la corrida principal.}
+{fig:simulacion}
+
+\resultfigure{resultados/resultados_sa_gpu/qubo_matrix.png}{0.76}
+{Matriz QUBO generada para la instancia $T=26$, $L=5$.}
+{fig:qubo-matrix}
+
+\resultfigure{resultados/resultados_sa_gpu/qubo_components.png}{0.86}
+{Componentes de la formulacion QUBO usada por la ruta QCentroid SA GPU.}
+{fig:qubo-components}
+
+\resultfigure{resultados/resultados_robustez/ranking_robustez.png}{0.82}
+{Ranking agregado de robustez bajo escenarios hidrologicos perturbados.}
+{fig:ranking}
+
+\resultfigure{resultados/resultados_robustez/heatmap_semanas_criticas.png}{0.92}
+{Semanas criticas por metodo y escenario.}
+{fig:heatmap}
+
+\resultfigure{resultados/resultados_robustez/boxplot_srs_robustez.png}{0.86}
+{Distribucion del SRS por metodo en los escenarios de robustez.}
+{fig:boxplot}
+
+\resultfigure{resultados/resultados_benchmark_qaoa/qaoa_validation_18q.png}{0.68}
+{Validacion QAOA en una ventana real reducida de 18 qubits; QAOA alcanza el minimo QUBO exacto.}
+{fig:qaoa-validation}
+
+\resultfigure{resultados/resultados_benchmark_qaoa/scaling_search_runtime.png}{0.92}
+{Escalabilidad: crecimiento del espacio de busqueda y tiempo de solver quantum-inspired.}
+{fig:scaling-qaoa}
+
+\resultfigure{resultados/resultados_benchmark_qaoa/cost_breakdown_srs.png}{0.82}
+{Desglose de contribuciones ponderadas al costo $-\mathrm{SRS}$ para el caso oficial.}
+{fig:cost-breakdown}
+
+\section{Escalabilidad}
+
+El crecimiento combinatorio justifica el uso de una formulacion binaria y de
+metodos hibridos. La busqueda exhaustiva deja de ser viable desde la instancia
+media:
+
+\begin{table}[H]
+\centering
+\caption{Crecimiento del espacio de busqueda.}
+\begin{tabular}{lrrr}
+\toprule
+Instancia & Semanas $T$ & Niveles $L$ & Politicas posibles \\
+\midrule
+Small & 12 & 3 & $3^{12}=531441$ \\
+Medium oficial & 26 & 5 & $5^{26}\approx 1.49\times 10^{18}$ \\
+Large & 52 & 5 & $5^{52}\approx 2.22\times 10^{36}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La formulacion QUBO escala linealmente en numero de variables binarias
+respecto a $T\times L$, aunque la densidad de acoplamientos y la dificultad de
+optimizacion crecen por las penalizaciones de suavidad, balance y trayectoria
+de almacenamiento.
+
+\section{Limitaciones}
+
+El modelo de embalse utilizado es deliberadamente simplificado, como lo indica
+el reto. No sustituye reglas operativas oficiales ni incorpora todos los
+factores legales, agricolas, urbanos o politicos del sistema binacional.
+
+Tambien se debe evitar sobreinterpretar la ruta QAOA: la instancia media
+requiere 130 qubits en la codificacion one-hot, por lo que la corrida
+registrada activo una proteccion y uso \texttt{sa\_gpu} como solucion estable.
+El valor tecnico de esa ruta es mostrar que el problema esta correctamente
+codificado en forma QUBO/Ising y que puede conectarse a backends cuanticos o
+hibridos, no afirmar una ventaja cuantica experimental.
+
+\section{Uso de herramientas de apoyo}
+
+Durante el desarrollo se usaron herramientas de apoyo para revision de codigo,
+organizacion de documentacion, depuracion y redaccion tecnica. El equipo definio
+la formulacion del problema, selecciono los datos hidrologicos, ejecuto los
+notebooks y scripts de optimizacion, verifico los resultados numericos y es
+responsable de la interpretacion final. Las decisiones tecnicas centrales
+--metrica SRS, restricciones, discretizacion, QUBO, comparacion contra baselines
+y analisis de robustez-- se reportan con archivos reproducibles dentro del
+repositorio.
+
+\section{Conclusiones}
+
+La solucion construida cumple los elementos centrales solicitados por el
+Challenge A:
+
+\begin{itemize}
+  \item discretiza ajustes semanales de liberacion;
+  \item codifica la politica como variables binarias one-hot;
+  \item deriva y ejecuta una formulacion QUBO de 130 variables;
+  \item compara contra historico, regla umbral y genetico DEAP;
+  \item reporta $\Delta$SRS y tiempos de computo;
+  \item audita restricciones de factibilidad;
+  \item documenta modos QCentroid \texttt{sa\_cpu}, \texttt{sa\_gpu} y
+  \texttt{qaoa};
+  \item agrega una evaluacion de robustez bajo escenarios perturbados.
+\end{itemize}
+
+El resultado principal es una mejora nominal de
+$\Delta\mathrm{SRS}=+0.010941$ frente al replay historico y una politica QUBO+SA
+factible. En robustez, QUBO+SA reoptimizado obtuvo el mejor ranking agregado
+entre los metodos evaluados.
+
+\section*{Archivos de reproduccion}
+
+\begin{itemize}
+  \item \texttt{resultados/benchmark\_delta\_srs.csv}
+  \item \texttt{resultados/resultados\_sa\_cpu/benchmark\_delta\_srs (1).csv}
+  \item \texttt{resultados/resultados\_sa\_gpu/benchmark\_delta\_srs.csv}
+  \item \texttt{resultados/resultados\_QAOA/benchmark\_delta\_srs.csv}
+  \item \texttt{resultados/resultados\_robustez/resumen\_robustez.csv}
+  \item \texttt{resultados/resultados\_robustez/detalle\_escenarios.csv}
+  \item \texttt{FalconChallenge\_QCentroid\_sa\_cpu.ipynb}
+  \item \texttt{FalconChallenge\_QCentroid\_sa\_gpu.ipynb}
+  \item \texttt{FalconChallenge\_QCentroid.ipynb}
+\end{itemize}
+
+\section*{Referencias}
+
+\begin{itemize}
+  \item United Nations, Sustainable Development Goal 6: \url{https://sdgs.un.org/goals/goal6}.
+  \item United Nations, Sustainable Development Goal 13: \url{https://sdgs.un.org/goals/goal13}.
+  \item E. Farhi, J. Goldstone, S. Gutmann, \textit{A Quantum Approximate Optimization Algorithm}, arXiv:1411.4028, 2014. \url{https://arxiv.org/abs/1411.4028}.
+  \item A. Lucas, \textit{Ising formulations of many NP problems}, Frontiers in Physics, 2014. \url{https://www.frontiersin.org/journals/physics/articles/10.3389/fphy.2014.00005/full}.
+  \item International Boundary and Water Commission Water Data Portal: \url{https://waterdata.ibwc.gov}.
+\end{itemize}
+
+\end{document}

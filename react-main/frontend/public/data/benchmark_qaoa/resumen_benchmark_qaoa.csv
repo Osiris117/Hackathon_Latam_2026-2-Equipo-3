@@ -1,0 +1,4 @@
+instancia,T,L,qubits,politicas,metodo,SRS,delta_srs_vs_historico,delta_srs_vs_regla,tiempo_s,nota
+validacion_qaoa,6,3,18,,QAOA statevector,-0.117375,,,,Alcanzo el minimo QUBO exacto contra brute force en slice real reducido
+small,12,3,36,531441,SA quantum-inspired,-0.221356,0.000000,0.077075,13.3,Brute force valido gap 0
+medium_oficial,26,5,130,1.49e18,SA quantum-inspired,-0.145371,0.010941,0.004620,15.7,Instancia oficial T=26 L=5
