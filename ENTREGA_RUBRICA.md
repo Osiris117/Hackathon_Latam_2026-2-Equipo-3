@@ -84,7 +84,7 @@ No afirmar que QAOA de 130 qubits resolvio oficialmente el problema. El resultad
 
 | Instancia | T | L | Qubits | Politicas |
 |---|---:|---:|---:|---:|
-| Small | 12 | 3 | 36 | 531,441 |
+| Validacion QAOA reducida | 6 | 3 | 18 | 729 |
 | Medium oficial | 26 | 5 | 130 | 1.49e18 |
 
 **Robustez:**
