@@ -87,10 +87,10 @@ DataSetExport-Reservoir Elevation.Web-Daily-m@08461200-Aggregate-m-2026062916475
 tabla_elevacion_volumen_FINAL.csv
 ```
 
-Carpeta adicional revisada:
+Fallback opcional revisado durante desarrollo:
 
 ```text
-/Users/osirissilvagarcia/Downloads/Hackathon_Latam_2026-4/hackatonlatam2026
+FALCON_EXTRA_DATA_DIR=/ruta/a/Hackathon_Latam_2026-4/hackatonlatam2026
 ```
 
 Contenido util detectado:
@@ -100,7 +100,7 @@ Contenido util detectado:
 - Versiones alternativas/simplificadas de almacenamiento total y cambio de almacenamiento.
 - Misma batimetria y datos base IBWC.
 
-`robustez_escenarios.py` busca primero los archivos en la carpeta principal del proyecto y, si falta algun CSV compatible, usa esta carpeta adicional como fallback. En la corrida registrada, la evaporacion aparecio como `disponible`.
+`robustez_escenarios.py` busca primero los archivos en la carpeta principal del proyecto y, si falta algun CSV compatible, puede usar la ruta opcional definida en `FALCON_EXTRA_DATA_DIR`. En la corrida registrada, la evaporacion aparecio como `disponible`.
 
 ## Rol de cada codigo
 

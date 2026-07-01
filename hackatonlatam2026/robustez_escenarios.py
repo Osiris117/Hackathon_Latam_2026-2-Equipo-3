@@ -43,7 +43,7 @@ FECHA_INICIO = "2024-01-01"
 T_OFICIAL = 26
 
 PROJECT_DIR = Path(__file__).resolve().parent
-EXTRA_DATA_DIR = Path("/Users/osirissilvagarcia/Downloads/Hackathon_Latam_2026-4/hackatonlatam2026")
+EXTRA_DATA_DIR = Path(os.environ["FALCON_EXTRA_DATA_DIR"]) if os.environ.get("FALCON_EXTRA_DATA_DIR") else None
 RESULTADOS_DIR = PROJECT_DIR / "resultados" / "resultados_robustez"
 
 
@@ -57,11 +57,13 @@ class Escenario:
 
 def _leer_csv_con_fallback(nombre: str, skiprows: int = 1) -> pd.DataFrame:
     """Carga un CSV desde el proyecto; si no existe, usa la carpeta extra."""
-    rutas = [PROJECT_DIR / nombre, EXTRA_DATA_DIR / nombre]
+    rutas = [PROJECT_DIR / nombre]
+    if EXTRA_DATA_DIR is not None:
+        rutas.append(EXTRA_DATA_DIR / nombre)
     for ruta in rutas:
         if ruta.exists():
             return pd.read_csv(ruta, skiprows=skiprows)
-    raise FileNotFoundError(f"No se encontro {nombre} en proyecto ni carpeta extra.")
+    raise FileNotFoundError(f"No se encontro {nombre} en las rutas configuradas.")
 
 
 def _leer_datos_base():

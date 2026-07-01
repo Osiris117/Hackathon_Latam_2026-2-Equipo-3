@@ -112,7 +112,8 @@ QUBO+SA reoptimizado obtuvo el mejor `robustez_score = -0.456030`; QUBO+SA nomin
 
 ## Nota requerida: uso de herramientas de apoyo
 
-La rubrica pide explicar uso de AI. Una forma honesta y acotada de decirlo:
+La rubrica pide explicar el uso de herramientas de apoyo. Propuesta breve para
+incluir en la entrega:
 
 ```text
 AI-assisted tools were used as support for code review, documentation drafting,
