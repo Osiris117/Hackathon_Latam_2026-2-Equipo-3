@@ -27,22 +27,24 @@ import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ZoomOutMapRoundedIcon from "@mui/icons-material/ZoomOutMapRounded";
 
+const assetPath = (path) => `${import.meta.env.BASE_URL}${path}`;
+
 const DATA = {
-  benchmark: "/data/benchmark_delta_srs.csv",
-  robustez: "/data/resumen_robustez.csv",
-  detalle: "/data/detalle_escenarios.csv",
-  saCpu: "/data/qcentroid_sa_cpu_resultado.json",
-  saGpu: "/data/qcentroid_sa_gpu_resultado.json",
-  qaoa: "/data/qcentroid_qaoa_resultado.json",
-  simulacion: "/data/simulacion_hibrida.png",
-  robustezBox: "/data/boxplot_srs_robustez.png",
-  robustezHeatmap: "/data/heatmap_semanas_criticas.png",
-  robustezRanking: "/data/ranking_robustez.png",
-  qaoaValidation: "/data/benchmark_qaoa/qaoa_validation_18q.png",
-  scalingBenchmark: "/data/benchmark_qaoa/scaling_search_runtime.png",
-  costBreakdown: "/data/benchmark_qaoa/cost_breakdown_srs.png",
-  reportePdf: "/reports/reporte_resultados_falcon.pdf",
-  reporteTex: "/reports/reporte_resultados_falcon.tex",
+  benchmark: assetPath("data/benchmark_delta_srs.csv"),
+  robustez: assetPath("data/resumen_robustez.csv"),
+  detalle: assetPath("data/detalle_escenarios.csv"),
+  saCpu: assetPath("data/qcentroid_sa_cpu_resultado.json"),
+  saGpu: assetPath("data/qcentroid_sa_gpu_resultado.json"),
+  qaoa: assetPath("data/qcentroid_qaoa_resultado.json"),
+  simulacion: assetPath("data/simulacion_hibrida.png"),
+  robustezBox: assetPath("data/boxplot_srs_robustez.png"),
+  robustezHeatmap: assetPath("data/heatmap_semanas_criticas.png"),
+  robustezRanking: assetPath("data/ranking_robustez.png"),
+  qaoaValidation: assetPath("data/benchmark_qaoa/qaoa_validation_18q.png"),
+  scalingBenchmark: assetPath("data/benchmark_qaoa/scaling_search_runtime.png"),
+  costBreakdown: assetPath("data/benchmark_qaoa/cost_breakdown_srs.png"),
+  reportePdf: assetPath("reports/reporte_resultados_falcon.pdf"),
+  reporteTex: assetPath("reports/reporte_resultados_falcon.tex"),
 };
 
 const pendingRuns = [
