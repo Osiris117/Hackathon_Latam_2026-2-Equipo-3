@@ -7,6 +7,14 @@ Este repositorio implementa un pipeline clasico-cuantico/hibrido para optimizar 
 
 ---
 
+## Enlaces de entrega
+
+- [Diapositivas del Equipo 3](https://docs.google.com/presentation/d/1MqzQAkY8zrc-ki2wj6XYoOeNK-eEwUsQtrqIDfzMslA/edit?pli=1&slide=id.p#slide=id.p)
+- Dashboard local: `react-main/frontend/`
+- Reporte final: `hackatonlatam2026/reporte_resultados_falcon.pdf`
+
+---
+
 ## 1. Resumen rapido
 
 La decision semanal es un ajuste `u(t)` sobre la liberacion historica:
