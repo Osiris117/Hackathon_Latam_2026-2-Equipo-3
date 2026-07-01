@@ -2,6 +2,12 @@
 
 Dashboard React/Vite para presentar resultados del Challenge A.
 
+Sitio desplegado:
+
+```text
+https://osiris117.github.io/Hackathon_Latam_2026-2-Equipo-3/
+```
+
 ## Ejecutar
 
 ```bash
